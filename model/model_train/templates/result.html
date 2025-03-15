@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Heart Health Prediction Result</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --background-color: #f4f6f7;
+            --text-color: #2c3e50;
+            --high-risk-color: #e74c3c;
+            --low-risk-color: #2ecc71;
+            --card-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .result-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: var(--card-shadow);
+            padding: 2rem;
+            max-width: 700px;
+            width: 100%;
+        }
+
+        .result-header {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .high-risk {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .low-risk {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+        }
+
+        .feature-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+        }
+
+        .feature-table th, .feature-table td {
+            padding: 0.75rem;
+            text-align: left;
+            background-color: #f1f4f8;
+            border-radius: 7px;
+        }
+
+        .feature-table th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .back-btn {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 10px;
+            margin-top: 1.5rem;
+            font-weight: 600;
+            transition: transform 0.3s ease;
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        <div class="result-header {% if prediction == 'High Risk of Heart Disease' %}high-risk{% else %}low-risk{% endif %}">
+            Your Prediction: {{ prediction }} (Predicted by {{ model_used }})
+            {% if prediction == 'High Risk of Heart Disease' %}
+                <button onclick="window.location.href='http://localhost:5173'">Book Doctor Appointment</button>
+            {% endif %}
+
+        </div>
+        <table class="feature-table">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>Value</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for feature, desc in feature_descriptions.items() %}
+                <tr>
+                    <td>{{ feature.upper() }}</td>
+                    <td>{{ input_features[loop.index0] }}</td>
+                    <td>{{ desc }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <br>
+        <a href="/">Back to Prediction</a>
+    </div>
+</body>
+</html>
+        
