@@ -2,6 +2,9 @@ import os
 import numpy as np
 import pandas as pd
 import joblib
+import requests
+import json
+from flask import request, jsonify
 from flask import Flask, render_template, request, jsonify
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -96,6 +99,345 @@ def home():
                            feature_descriptions=FEATURE_DESCRIPTIONS, 
                            model_performance=model_performance)
 
+# Add this to your Flask application
+
+# Add these imports to your Flask applicatio
+
+# Add this to your Flask application routes
+# @app.route('/api/chat', methods=['POST'])
+# def chat():
+#     data = request.json
+#     risk_level = data.get('risk_level')
+#     user_features = data.get('user_features')
+#     conversation_history = data.get('conversation_history', [])
+#     user_message = data.get('user_message')
+    
+#     # Check if message is about irrelevant topics
+#     irrelevant_topics = ['weather', 'sports', 'movie', 'politics', 'travel', 'vacation', 
+#                         'game', 'music', 'crypto', 'dating', 'social media', 'tv show']
+    
+#     is_irrelevant = any(topic in user_message.lower() for topic in irrelevant_topics)
+    
+#     if is_irrelevant:
+#         return jsonify({
+#             'response': "I'm specifically designed to discuss heart health concerns. Could we focus on your heart health results and recommendations?"
+#         })
+    
+#     # Prepare the system prompt for Ollama
+#     system_prompt = f"""
+#     You are a Heart Health Assistant chatbot embedded in a medical application.
+#     The user has been assessed with a {risk_level} risk of heart disease.
+    
+#     Their input features are:
+#     {json.dumps(user_features, indent=2)}
+    
+#     IMPORTANT GUIDELINES:
+#     1. ONLY provide information related to heart health, cardiovascular issues, and lifestyle recommendations related to heart health.
+#     2. If the user asks about topics unrelated to heart health, politely redirect them to heart health topics.
+#     3. Do not answer questions about non-heart-related medical conditions, diagnosis, or treatment.
+#     4. Keep responses concise (under 150 words) and focused on actionable advice.
+#     5. Be empathetic but direct and factual.
+    
+#     If the user has HIGH RISK:
+#     - Emphasize the importance of seeing a cardiologist promptly
+#     - Suggest booking a doctor's appointment
+#     - Provide urgent but calm guidance
+#     - Mention monitoring vital signs
+#     - Discuss immediate lifestyle modifications
+    
+#     If the user has LOW RISK:
+#     - Focus on preventive measures and maintaining heart health
+#     - Recommend regular check-ups, not urgent medical attention
+#     - Suggest proper diet, exercise, and stress management techniques
+#     - Emphasize the importance of maintaining current healthy practices
+    
+#     Respond to the user's most recent message while considering the conversation history.
+#     """
+    
+#     # Format conversation history for Ollama
+#     formatted_messages = [{"role": "system", "content": system_prompt}]
+    
+#     # Add conversation history
+#     for message in conversation_history:
+#         formatted_messages.append({
+#             "role": message["role"],
+#             "content": message["content"]
+#         })
+    
+#     # Add current user message
+#     formatted_messages.append({"role": "user", "content": user_message})
+    
+#     try:
+#         # Call Ollama API running locally
+#         ollama_url = "http://localhost:11434/api/chat"  # Default Ollama API endpoint
+        
+#         payload = {
+#             "model": "llama2",  # Specify your model here (llama2, llama2-uncensored, mistral, etc.)
+#             "messages": formatted_messages,
+#             "options": {
+#                 "temperature": 0.7,
+#                 "top_p": 0.9,
+#                 "max_tokens": 500,
+#             }
+#         }
+        
+#         response = requests.post(ollama_url, json=payload)
+#         response.raise_for_status()  # Raise exception for HTTP errors
+        
+#         result = response.json()
+#         assistant_response = result.get('message', {}).get('content', '')
+        
+#         # Fallback if response is empty
+#         if not assistant_response.strip():
+#             raise Exception("Empty response from Ollama")
+            
+#         return jsonify({
+#             'response': assistant_response
+#         })
+        
+#     except Exception as e:
+#         app.logger.error(f"Ollama API error: {str(e)}")
+        
+#         # Fallback responses based on risk level
+#         if risk_level == "high":
+#             fallback = "With your high risk assessment, I recommend consulting a cardiologist soon. In the meantime, monitor your blood pressure, maintain a heart-healthy diet low in sodium and saturated fat, and avoid strenuous activities until cleared by a doctor."
+#         else:
+#             fallback = "To maintain your good heart health, focus on regular exercise, a balanced diet rich in fruits and vegetables, stress management, and regular check-ups. These habits will help keep your heart disease risk low."
+            
+#         return jsonify({
+#             'response': fallback
+#         })
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.json
+    risk_level = data.get('risk_level')
+    # user_features = data.get('user_features')
+    conversation_history = data.get('conversation_history', [])
+    user_message = data.get('user_message')
+
+    # List of irrelevant topics
+    irrelevant_topics = ['weather', 'sports', 'movie', 'politics', 'travel', 'vacation', 
+                         'game', 'music', 'crypto', 'dating', 'social media', 'tv show']
+
+    # If user message contains irrelevant topics, redirect the conversation
+    if any(topic in user_message for topic in irrelevant_topics):
+        return jsonify({
+            'response': "I'm specifically designed to discuss heart health concerns. Could we focus on your heart health results and recommendations?"
+        })
+
+    # System prompt to enforce conversation guidelines
+    system_prompt = f"""
+        You are a Heart Health Assistant chatbot embedded in a medical application.
+        The user has been assessed with a {risk_level} risk of heart disease.
+
+        IMPORTANT GUIDELINES:
+        1. ONLY discuss heart health, cardiovascular issues, and lifestyle recommendations.
+        2. STRICTLY AVOID unrelated topics like celebrities, sports, politics, movies, etc.
+        3. If the user asks anything unrelated, reply:  
+        "I'm here to assist you with heart health. Let's focus on that."
+        4. Responses must be **under 150 words** and provide actionable advice.
+        5. If the user has HIGH RISK:
+        - Emphasize seeing a cardiologist soon.
+        - Suggest lifestyle changes immediately.
+        - Be empathetic but direct.
+
+        If the user has LOW RISK:
+        - Focus on prevention and maintaining heart health.
+        - Recommend diet, exercise, and stress management.
+        """ 
+            
+
+
+    # Format conversation history
+    formatted_history = [{"role": msg["role"], "content": msg["content"]} for msg in conversation_history]
+
+    # Add system message & user message to history
+    messages = [
+        {"role": "system", "content": system_prompt},  # 🛑 Enforces topic restrictions
+        *formatted_history,  
+        {"role": "user", "content": user_message}
+    ]
+
+    # Call Ollama API
+    try:
+        ollama_url = "http://localhost:11434/api/chat"
+        payload = {
+            "model": "llama2:latest",
+            "messages": messages,
+            "temperature": 0.7,
+            "stream": False
+        }
+        # print(payload)
+
+        response = requests.post(ollama_url, json=payload)
+        response.raise_for_status()
+        # print("res:",response)
+
+        result = response.json()
+        # print("result:",result)
+        raw_response = result.get('message', {}).get('content', '')
+        # print("raw response:",raw_response)
+        # Ensure process_ollama_response function exists
+        processed_response = process_ollama_response(raw_response, risk_level)
+
+        if len(processed_response.strip()) < 10:
+            raise ValueError("Response too short or empty")
+
+        return jsonify({'response': processed_response})
+
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Ollama API error: {str(e)} - Response: {response.text if response else 'No response'}")
+
+        fallback = ("With your high risk assessment, I recommend consulting a cardiologist soon." 
+                    " In the meantime, monitor your blood pressure, maintain a heart-healthy diet, "
+                    "and avoid strenuous activities.") if risk_level == "high" else \
+                   ("To maintain your good heart health, focus on regular exercise, a balanced diet, "
+                    "stress management, and regular check-ups.")
+
+        return jsonify({'response': fallback})
+def process_ollama_response(response_text, risk_level):
+    """
+    Process and improve Ollama responses to ensure quality and relevance
+    
+    Args:
+        response_text (str): Raw response from Ollama
+        risk_level (str): User's risk level ('high' or 'low')
+        
+    Returns:
+        str: Processed and improved response
+    """
+    # Remove any standard prefixes that Llama models sometimes add
+    prefixes_to_remove = [
+        "As an AI assistant,", 
+        "As a language model,",
+        "I'm an AI language model,",
+        "I cannot provide medical advice,",
+        "I'm not a medical professional,"
+    ]
+    
+    for prefix in prefixes_to_remove:
+        if response_text.startswith(prefix):
+            response_text = response_text[len(prefix):].strip()
+    print("rw:",response_text)
+    # Ensure the response stays on topic about heart health
+    if not any(topic in response_text.lower() for topic in [
+        "heart", "cardiac", "cardiovascular", "blood pressure", "cholesterol", 
+        "exercise", "diet", "stress", "lifestyle", "doctor", "health"
+    ]):
+        # Add relevant content if the model went off-topic
+        if risk_level == "high":
+            response_text += " Remember, with your high risk of heart disease, it's important to consult with a doctor soon and focus on heart-healthy habits."
+        else:
+            response_text += " To maintain your good heart health, continue with heart-healthy lifestyle habits including a balanced diet and regular exercise."
+    
+    # Remove any disclaimers at the end
+    disclaimers = [
+        "Please consult with a healthcare professional",
+        "This is not medical advice",
+        "I'm not a doctor",
+        "Always seek professional medical advice"
+    ]
+    
+    for disclaimer in disclaimers:
+        if disclaimer in response_text:
+            parts = response_text.split(disclaimer)
+            response_text = parts[0].strip()
+    
+    # Ensure the response ends properly without being cut off
+    if not response_text.endswith((".", "!", "?")):
+        response_text += "."
+    print(response_text)
+    return response_text
+
+# Add this function to your Flask route
+def create_chatbot_prompt(risk_level, conversation_history, current_query):
+    """
+    Creates an optimized prompt for Ollama based on conversation context
+    """
+    # Convert features to a readable string
+    # feature_str = "\n".join([f"- {k}: {v}" for k, v in user_features.items()])
+    
+    # Determine prompt focus based on query topic
+    query_lower = current_query.lower()
+    
+    if any(word in query_lower for word in ["doctor", "appointment", "specialist", "cardiologist"]):
+        focus = "medical_consultation"
+    elif any(word in query_lower for word in ["diet", "food", "eat", "nutrition"]):
+        focus = "diet"
+    elif any(word in query_lower for word in ["exercise", "activity", "fitness", "workout"]):
+        focus = "exercise"
+    elif any(word in query_lower for word in ["emergency", "chest pain", "symptoms", "warning"]):
+        focus = "emergency"
+    else:
+        focus = "general"
+    
+    # Create base prompt with risk-specific guidance
+    base_prompt = f"""
+    You are a Heart Health Assistant chatbot in a medical application.
+    
+    USER STATUS:
+    - Risk level: {risk_level.upper()} risk of heart disease
+    
+    
+    RESPONSE REQUIREMENTS:
+    - ONLY discuss heart health and related lifestyle factors
+    - Keep responses under 150 words
+    - Be conversational but direct
+    - Focus on providing practical advice
+    """
+    
+    # Add focus-specific instructions
+    if focus == "medical_consultation":
+        if risk_level == "high":
+            base_prompt += """
+            For this question about medical consultation:
+            - Emphasize the URGENCY of seeing a cardiologist (within 1-2 weeks)
+            - Mention specific tests they might expect (ECG, stress test, etc.)
+            - Suggest preparing questions for their doctor
+            """
+        else:
+            base_prompt += """
+            For this question about medical consultation:
+            - Recommend regular primary care check-ups (annually)
+            - Mention standard screenings (blood pressure, cholesterol)
+            - Focus on preventive care
+            """
+    
+    elif focus == "diet":
+        if risk_level == "high":
+            base_prompt += """
+            For this diet question:
+            - Emphasize immediate dietary changes needed
+            - Focus on low sodium, low saturated fat options
+            - Mention DASH or Mediterranean diet specifically
+            - Suggest specific foods to avoid and include
+            """
+        else:
+            base_prompt += """
+            For this diet question:
+            - Recommend heart-healthy eating patterns
+            - Suggest balanced nutrition with examples
+            - Mention benefits of whole foods
+            """
+    
+    # Truncate conversation history to last 4 exchanges to fit context window
+    recent_history = conversation_history[-8:] if len(conversation_history) > 8 else conversation_history
+    history_str = "\n".join([f"{'User' if msg['role']=='user' else 'Assistant'}: {msg['content']}" for msg in recent_history])
+    
+    # Complete the prompt
+    full_prompt = f"""
+    {base_prompt}
+    
+    CONVERSATION HISTORY:
+    {history_str}
+    
+    Current user question: {current_query}
+    
+    Your response (stay focused on heart health, be conversational, and under 150 words):
+    """
+    
+    return full_prompt
+
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
@@ -124,7 +466,7 @@ def predict():
         # Interpret result
         result = "High Risk of Heart Disease" if prediction == 1 else "Low Risk of Heart Disease"
         
-        return render_template('result.html', 
+        return render_template('chatbot1.html', 
                                prediction=result, 
                                model_used=selected_model,
                                input_features=input_features,
@@ -452,7 +794,7 @@ def create_templates():
 </html>
         """)
 
-# Main execution
+# Main executional
 if __name__ == '__main__':
     app.run(debug=True)
 
